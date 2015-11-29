@@ -25,16 +25,14 @@ int main(int argc, char** argv) {
     uint8_t *image_buf;
     int fd;
     struct bpb33* bpb;
-    if (argc < 2) {
-	usage(argv[0]);
-    }
+    if (argc < 2)
+    	usage(argv[0]);
 
     image_buf = mmap_file(argv[1], &fd);
     bpb = check_bootsector(image_buf);
 
     // your code should start here...
-
-
+    uint8_t *root_dir = root_dir_addr(image_buf,bpb);
 
 
 
