@@ -45,7 +45,7 @@ uint8_t *mmap_file(char *filename, int *fd)
     /* Step 2: find out how big the disk image file is */
     /* we can use "stat" to do this, by checking the file status */
 
-    if (stat(pathname, &statbuf) < 0){
+    if (stat(pathname, &statbuf) < 0) {
     	fprintf(stderr, "Cannot read disk image file %s:\n%s\n",
     		pathname, strerror(errno));
     	exit(1);
@@ -232,8 +232,7 @@ int is_end_of_file(uint16_t cluster)
    start of the root directory, as indicated in the boot sector */
 uint8_t *root_dir_addr(uint8_t *image_buf, struct bpb33* bpb) {
     uint32_t offset;
-    offset = (bpb->bpbBytesPerSec
-	 * (bpb->bpbResSectors + (bpb->bpbFATs * bpb->bpbFATsecs)));
+    offset = (bpb->bpbBytesPerSec * (bpb->bpbResSectors + (bpb->bpbFATs * bpb->bpbFATsecs)));
     return image_buf + offset;
 }
 
