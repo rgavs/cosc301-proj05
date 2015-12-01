@@ -37,26 +37,17 @@ uint16_t print_dirent(struct direntry *dirent, int indent)
     memcpy(name, &(dirent->deName[0]), 8);
     memcpy(extension, dirent->deExtension, 3);
     if (name[0] == SLOT_EMPTY)
-    {
 		return followclust;
-    }
 
     /* skip over deleted entries */
     if (((uint8_t)name[0]) == SLOT_DELETED)
-    {
 		return followclust;
-    }
 
     if (((uint8_t)name[0]) == 0x2E)
-    {
-		// dot entry ("." or "..")
-		// skip it
-			return followclust;
-    }
+			return followclust;  // skip dot entries "." & ".."
 
     /* names are space padded - remove the spaces */
-    for (i = 8; i > 0; i--)
-    {
+    for (i = 8; i > 0; i--) {
 		if (name[i] == ' ')
 			name[i] = '\0';
 		else

@@ -1,0 +1,6 @@
+Outline:
+Go through all files in all directories
+Follow clusters to add up size in bytes (adding the likely partially filled cluster EOF)
+    compare each of those to size shown in direntry
+
+Need to think about/decide plans for implementation

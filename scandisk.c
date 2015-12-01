@@ -14,10 +14,6 @@
 #include "fat.h"
 #include "dos.h"
 
-// Globals
-uint8_t *image_buf;
-struct bpb33* bpb;
-
 
 void usage(char *progname) {
     fprintf(stderr, "usage: %s <imagename>\n", progname);
@@ -52,10 +48,8 @@ uint16_t print_dirent(struct direntry *dirent, int indent)
     if (((uint8_t)name[0]) == SLOT_DELETED)
 		return followclust;
 
-	// dot entry ("." or "..")
-	// skip it
-    if (((uint8_t)name[0]) == 0x2E)
-		return followclust;
+	if (((uint8_t)name[0]) == 0x2E)
+		return followclust;           // skip dot entries "." & ".."
 
     /* names are space padded - remove the spaces */
     for (i = 8; i > 0; i--) {
@@ -143,12 +137,19 @@ void traverse_root(uint8_t *image_buf, struct bpb33* bpb)
     }
 }
 
-int actual_size(uint8_t *image_buf, struct bpb33* bpb){
-    
+int dir_sz_correct(uint8_t *image_buf, struct bpb33* bpb) {
+    uint16_t cluster = 0;
+    int size = 0;
+    for(int i = 0; i < bpb->bpbRootDirEnts; i++){
+
+    }
+    return 0;
 }
 
 int main(int argc, char** argv) {
+    uint8_t *image_buf;
     int fd;
+    struct bpb33* bpb;
     if (argc < 2)
     	usage(argv[0]);
 
@@ -156,9 +157,7 @@ int main(int argc, char** argv) {
     bpb = check_bootsector(image_buf);
 
     // your code should start here...
-    struct direntry *dirent = (struct direntry*)cluster_to_addr(0, image_buf, bpb);
-
-
+    struct direntry *root_dir = (struct direntry*)cluster_to_addr(0, image_buf, bpb);
 
     unmmap_file(image_buf, &fd);
     return 0;
