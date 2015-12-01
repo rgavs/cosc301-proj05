@@ -14,6 +14,10 @@
 #include "fat.h"
 #include "dos.h"
 
+// Globals
+uint8_t *image_buf;
+struct bpb33* bpb;
+
 
 void usage(char *progname) {
     fprintf(stderr, "usage: %s <imagename>\n", progname);
@@ -21,11 +25,10 @@ void usage(char *progname) {
 }
 
 
-void print_indent(int indent)
-{
+void print_indent(int indent) {
     int i;
     for (i = 0; i < indent*4; i++)
-	printf(" ");
+    	printf(" ");
 }
 
 
@@ -140,10 +143,12 @@ void traverse_root(uint8_t *image_buf, struct bpb33* bpb)
     }
 }
 
+int actual_size(uint8_t *image_buf, struct bpb33* bpb){
+    
+}
+
 int main(int argc, char** argv) {
-    uint8_t *image_buf;
     int fd;
-    struct bpb33* bpb;
     if (argc < 2)
     	usage(argv[0]);
 
@@ -151,8 +156,7 @@ int main(int argc, char** argv) {
     bpb = check_bootsector(image_buf);
 
     // your code should start here...
-    // uint8_t *root_dir = root_dir_addr(image_buf,bpb); 							// is this useful at all?
-	struct direntry *dirent = (struct direntry*)cluster_to_addr(0, image_buf, bpb);
+    struct direntry *dirent = (struct direntry*)cluster_to_addr(0, image_buf, bpb);
 
 
 
