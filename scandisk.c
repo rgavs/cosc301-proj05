@@ -15,6 +15,11 @@
 #include "dos.h"
 
 
+struct _cluster_map{
+    int * arr[2880];
+};
+
+
 void usage(char *progname) {
     fprintf(stderr, "usage: %s <imagename>\n", progname);
     exit(1);
@@ -155,8 +160,7 @@ int main(int argc, char** argv) {
 
     image_buf = mmap_file(argv[1], &fd);
     bpb = check_bootsector(image_buf);
-
-    // your code should start here...
+    // start user code
     struct direntry *root_dir = (struct direntry*)cluster_to_addr(0, image_buf, bpb);
 
     unmmap_file(image_buf, &fd);

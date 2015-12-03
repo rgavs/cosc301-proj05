@@ -1,16 +1,28 @@
 TODO:
+Create linked list struct
+    initialize full linked list, node for each cluster as orphaned
+        pointer to next node sequentially
+        array of pointers to cluster # that node points to (array size 0 if !directory) : initialize all to NULL
+    update clusters as touched below
+
 Cycle through all files in all directories
     Follow all cluster chains
         ensure all clusters are marked free or are referenced in a cluster chain
             and are not marked BAD
-                what to do here
+                what to do here ??
         add up size in bytes (adding the likely partially filled cluster EOF)
         compare each of those to size shown in direntry
             size may be > or < ; both are problems
                 if > : free clusters over length denoted in metadata
+Loop through array of clusters and pick out problems: unreferenced | BAD | beyond file length
     Upon finding any issues- print out files with inconsistent metadata/actual size
 
+
+HOW TO:
+    read cluster contents with is_valid_cluster | get_fat_entry
+    use linked list struct as defined above
 
 Broad issues:
     Need to think about/decide plans for implementation
         how many helper functions to create etc ???
+    Can struct holding cluster references be a fixed size (number of sectors) ??
