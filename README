@@ -1,6 +1,14 @@
+au:rgavs & work together
 TODO:
-Create linked list struct
-    initialize full linked list, node for each cluster as orphaned
+!! Create node struct; then *array* of nodes (IFF the clusters can be mapped to a fixed size)
+    #define CLUST_ORPHAN = -1;
+    struct _node{
+        int stat;                       // or together fat.h cluster numbers ; initially set to CLUST_ORPHAN
+        uint16_t next_clust;            // if in cluster chain, points to next cluster; else -1
+        uint16_t parent;                //                      points to HEAD of cluster chain; else -1
+    }; typedef struct _node node;
+    **array will function much better than linked list as it can be randomly accessed unlike linked list
+    initialize full array, node for each cluster; initially set as CLUST_o = -1
         pointer to next node sequentially
         array of pointers to cluster # that node points to (array size 0 if !directory) : initialize all to NULL
     update clusters as touched below

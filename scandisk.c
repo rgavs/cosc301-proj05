@@ -14,10 +14,14 @@
 #include "fat.h"
 #include "dos.h"
 
+#define CLUST_ORPHAN = -1;          // au:rgavs
+struct _node{
+    int stat;                       // or together fat.h cluster numbers ; initially set to CLUST_ORPHAN
+    uint16_t next_clust;            // if in cluster chain, points to next cluster; else -1
+    uint16_t parent;                //                      points to HEAD of cluster chain; else -1
+}; typedef struct _node node;
 
-struct _cluster_map{
-    int * arr[2880];
-};
+node **clust_map;                   // end commit
 
 
 void usage(char *progname) {
