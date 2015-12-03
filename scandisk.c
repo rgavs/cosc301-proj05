@@ -141,7 +141,7 @@ int dir_sz_correct(uint8_t *image_buf, struct bpb33* bpb) {
     uint16_t cluster = 0;
     int size = 0;
     for(int i = 0; i < bpb->bpbRootDirEnts; i++){
-
+        uint16_t follow_cluster;
     }
     return 0;
 }

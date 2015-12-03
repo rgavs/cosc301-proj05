@@ -1,6 +1,16 @@
-Outline:
-Go through all files in all directories
-Follow clusters to add up size in bytes (adding the likely partially filled cluster EOF)
-    compare each of those to size shown in direntry
+TODO:
+Cycle through all files in all directories
+    Follow all cluster chains
+        ensure all clusters are marked free or are referenced in a cluster chain
+            and are not marked BAD
+                what to do here
+        add up size in bytes (adding the likely partially filled cluster EOF)
+        compare each of those to size shown in direntry
+            size may be > or < ; both are problems
+                if > : free clusters over length denoted in metadata
+    Upon finding any issues- print out files with inconsistent metadata/actual size
 
-Need to think about/decide plans for implementation
+
+Broad issues:
+    Need to think about/decide plans for implementation
+        how many helper functions to create etc ???
