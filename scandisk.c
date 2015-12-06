@@ -14,14 +14,17 @@
 #include "fat.h"
 #include "dos.h"
 
-#define CLUST_ORPHAN = -1;          // au:rgavs
+#define CLUST_GOOD               1           // au:rgavs
+#define CLUST_ORPHAN             -1          // au:rgavs     commit: 94413e0
+#define CLUST_DIR                0x0100
+
 struct _node{
-    int stat;                       // or together fat.h cluster numbers ; initially set to CLUST_ORPHAN
-    uint16_t next_clust;            // if in cluster chain, points to next cluster; else -1
-    uint16_t parent;                //                      points to HEAD of cluster chain; else -1
+    uint16_t stat;                  // or together dir.h cluster numbers ; initially set to CLUST_ORPHAN
+    uint16_t *next_clust;            // if in cluster chain, points to next cluster; else -1
+    uint16_t *parent;                //                      points to HEAD of cluster chain; else -1
 }; typedef struct _node node;
 
-node **clust_map;                   // end commit
+node *clust_map[2880];                   // end commit
 
 
 void usage(char *progname) {
@@ -135,25 +138,27 @@ void follow_dir(uint16_t cluster, int indent, uint8_t *image_buf, struct bpb33* 
 
 void traverse_root(uint8_t *image_buf, struct bpb33* bpb)
 {
-    uint16_t cluster = 0;
-    struct direntry *dirent = (struct direntry*)cluster_to_addr(cluster, image_buf, bpb);
-    int i = 0;
+    struct direntry *dirent = (struct direntry*)cluster_to_addr(MSDOSFSROOT, image_buf, bpb);
+    int i = 0;                    // au: rgavs   | adjusted to macro ^^
     for ( ; i < bpb->bpbRootDirEnts; i++) {
         uint16_t followclust = print_dirent(dirent, 0);
-        if (is_valid_cluster(followclust, bpb))
+        if (is_valid_cluster(followclust, bpb)){           // this and implementing in follow_dir
+            clust_map[followclust]->parent = (uint8_t *) dirent;
+            clust_map[followclust]->stat = CLUST_DIR;      // should fill fields in clust_map
             follow_dir(followclust, 1, image_buf, bpb);
+        }
         dirent++;
     }
 }
 
-int dir_sz_correct(uint8_t *image_buf, struct bpb33* bpb) {
-    uint16_t cluster = 0;
-    int size = 0;
-    for(int i = 0; i < bpb->bpbRootDirEnts; i++){
-        uint16_t follow_cluster;
-    }
-    return 0;
-}
+// int dir_sz_correct(uint8_t *image_buf, struct bpb33* bpb) {
+//     uint16_t cluster = 0;
+//     int size = 0;
+//     for(int i = 0; i < bpb->bpbRootDirEnts; i++){
+//         uint16_t follow_cluster;
+//     }
+//     return 0;
+// }
 
 int main(int argc, char** argv) {
     uint8_t *image_buf;
