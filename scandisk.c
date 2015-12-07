@@ -14,17 +14,19 @@
 #include "fat.h"
 #include "dos.h"
 
-#define CLUST_GOOD               1           // au:rgavs
-#define CLUST_ORPHAN             -1          // au:rgavs     commit: 94413e0
-#define CLUST_DIR                0x0100
+#define CLUST_ORPHAN        0xffff     // au:rgavs
+#define CLUST_DIR           0x0100
+#define CLUST_HEAD          0x0200
+#define CLUST_NORM          0x0400
+#define TOTAL_CLUST         2880
 
 struct _node{
-    uint16_t stat;                  // or together dir.h cluster numbers ; initially set to CLUST_ORPHAN
-    uint16_t *next_clust;            // if in cluster chain, points to next cluster; else -1
-    uint16_t *parent;                //                      points to HEAD of cluster chain; else -1
+    uint16_t stat;                     // or together dir.h ATTR macros ; initially set to CLUST_ORPHAN
+    uint16_t next_clust;               // if in cluster chain, points to next cluster; else -1
+    uint16_t parent;                   //                      points to HEAD of cluster chain; else -1
 }; typedef struct _node node;
 
-node *clust_map[2880];                   // end commit
+node *clust_map[2880];                  // end commit
 
 
 void usage(char *progname) {
@@ -127,8 +129,12 @@ void follow_dir(uint16_t cluster, int indent, uint8_t *image_buf, struct bpb33* 
         int i = 0;
 		for ( ; i < numDirEntries; i++) {
 				uint16_t followclust = print_dirent(dirent, indent);
-				if (followclust)
+				if (followclust){                               // au:rgavs
+                    clust_map[followclust]->parent = cluster;
+                    clust_map[cluster]->next_clust = followclust;
+                    clust_map[followclust]->stat = CLUST_DIR;   // end
 					follow_dir(followclust, indent+1, image_buf, bpb);
+                }
 				dirent++;
 		}
 		cluster = get_fat_entry(cluster, image_buf, bpb);
@@ -138,27 +144,47 @@ void follow_dir(uint16_t cluster, int indent, uint8_t *image_buf, struct bpb33* 
 
 void traverse_root(uint8_t *image_buf, struct bpb33* bpb)
 {
-    struct direntry *dirent = (struct direntry*)cluster_to_addr(MSDOSFSROOT, image_buf, bpb);
-    int i = 0;                    // au: rgavs   | adjusted to macro ^^
+    uint16_t cluster = 0;
+    struct direntry *dirent = (struct direntry*)cluster_to_addr(cluster, image_buf, bpb);
+    int i = 0;
     for ( ; i < bpb->bpbRootDirEnts; i++) {
         uint16_t followclust = print_dirent(dirent, 0);
-        if (is_valid_cluster(followclust, bpb)){           // this and implementing in follow_dir
-            clust_map[followclust]->parent = (uint8_t *) dirent;
-            clust_map[followclust]->stat = CLUST_DIR;      // should fill fields in clust_map
+        if (is_valid_cluster(followclust, bpb)){
+            clust_map[followclust]->parent = cluster;       // au:rgavs commit:fcce
+            clust_map[cluster]->next_clust = followclust;   // end      fcce
             follow_dir(followclust, 1, image_buf, bpb);
         }
         dirent++;
     }
 }
 
-// int dir_sz_correct(uint8_t *image_buf, struct bpb33* bpb) {
-//     uint16_t cluster = 0;
-//     int size = 0;
-//     for(int i = 0; i < bpb->bpbRootDirEnts; i++){
-//         uint16_t follow_cluster;
-//     }
-//     return 0;
-// }
+void dir_sz_correct() {                 // au:rgavs
+    clust_map[2]->stat = CLUST_FIRST;
+    uint16_t size;
+    for(int i = 2; i < TOTAL_CLUST; i++){
+        switch(clust_map[i]->stat){
+            case CLUST_ORPHAN: // kind of ugly looking switch, but I don't know any better
+                printf("Cluster number %d is an orphan!\n", i);
+                break;
+            case CLUST_BAD & FAT16_MASK:
+                printf("Cluster number %d is BAD!\n", i);
+                break;
+            case CLUST_FREE:
+                printf("Cluster number %d is free.\n", i);
+                    break;
+            case CLUST_DIR:
+                printf("Cluster number %d is a directory entry.\n", i);
+                break;
+            case CLUST_EOFS & FAT12_MASK:
+                printf("Cluster number %d is an EOF.\n", i);
+                break;
+            case CLUST_EOFE & FAT12_MASK:
+                printf("Cluster number %d is an EOF.\n", i);
+                break;
+
+        }
+    }
+}                                   // end
 
 int main(int argc, char** argv) {
     uint8_t *image_buf;
@@ -169,8 +195,10 @@ int main(int argc, char** argv) {
 
     image_buf = mmap_file(argv[1], &fd);
     bpb = check_bootsector(image_buf);
+
     // start user code
-    struct direntry *root_dir = (struct direntry*)cluster_to_addr(0, image_buf, bpb);
+    traverse_root(image_buf, bpb);
+    dir_sz_correct();
 
     unmmap_file(image_buf, &fd);
     return 0;
