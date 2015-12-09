@@ -105,7 +105,7 @@ uint16_t print_dirent(struct direntry *dirent, int indent)
 		int hidden = (dirent->deAttributes & ATTR_HIDDEN) == ATTR_HIDDEN;
 		int sys = (dirent->deAttributes & ATTR_SYSTEM) == ATTR_SYSTEM;
 		int arch = (dirent->deAttributes & ATTR_ARCHIVE) == ATTR_ARCHIVE;
-
+        clust_map[followclust]->stat = CLUST_NORM;
 		size = getulong(dirent->deFileSize);
 		print_indent(indent);
 		printf("%s.%s (%u bytes) (starting cluster %d) %c%c%c%c\n",
@@ -122,6 +122,7 @@ uint16_t print_dirent(struct direntry *dirent, int indent)
 
 void follow_dir(uint16_t cluster, int indent, uint8_t *image_buf, struct bpb33* bpb)
 {
+    printf("IN FOLLOW_DIR\n");
     while (is_valid_cluster(cluster, bpb)) {
         struct direntry *dirent = (struct direntry*)cluster_to_addr(cluster, image_buf, bpb);
 
@@ -150,12 +151,17 @@ void traverse_root(uint8_t *image_buf, struct bpb33* bpb)
     for ( ; i < bpb->bpbRootDirEnts; i++) {
         uint16_t followclust = print_dirent(dirent, 0);
         if (is_valid_cluster(followclust, bpb)){
-            clust_map[followclust]->parent = cluster;       // au:rgavs commit:fcce
+            printf("followclust = %u and cluster = %u and dirent = %s\n",followclust,cluster,(uint8_t*)dirent);
+            clust_map[followclust]->parent = cluster;       // au:rgavs commit:fcce     PROMBLEM HERE!!
             clust_map[cluster]->next_clust = followclust;   // end      fcce
             follow_dir(followclust, 1, image_buf, bpb);
         }
         dirent++;
     }
+}
+
+int follow_clust_chain(int clust){
+    return 0;
 }
 
 void dir_sz_correct() {                 // au:rgavs
@@ -164,13 +170,13 @@ void dir_sz_correct() {                 // au:rgavs
     for(int i = 2; i < TOTAL_CLUST; i++){
         switch(clust_map[i]->stat){
             case CLUST_ORPHAN: // kind of ugly looking switch, but I don't know any better
-                printf("Cluster number %d is an orphan!\n", i);
+                // printf("Cluster number %d is an orphan!\n", i);
                 break;
             case CLUST_BAD & FAT16_MASK:
                 printf("Cluster number %d is BAD!\n", i);
                 break;
             case CLUST_FREE:
-                printf("Cluster number %d is free.\n", i);
+                // printf("Cluster number %d is free.\n", i);
                     break;
             case CLUST_DIR:
                 printf("Cluster number %d is a directory entry.\n", i);
@@ -187,6 +193,12 @@ void dir_sz_correct() {                 // au:rgavs
 }                                   // end
 
 int main(int argc, char** argv) {
+    for(int i = 0; i < 2880;i++){
+        clust_map[i] = malloc(sizeof(node));
+        clust_map[i]->stat = CLUST_ORPHAN;
+        clust_map[i]->parent = -1;
+        clust_map[i]->next_clust = -1;
+    }
     uint8_t *image_buf;
     int fd;
     struct bpb33* bpb;
@@ -201,5 +213,8 @@ int main(int argc, char** argv) {
     dir_sz_correct();
 
     unmmap_file(image_buf, &fd);
+    for(int i = 0; i < 2880;i++)
+        free(clust_map[i]);
+    printf("Execution complete.\n");
     return 0;
 }
