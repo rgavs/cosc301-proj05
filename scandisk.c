@@ -14,7 +14,7 @@
 #include "fat.h"
 #include "dos.h"
 
-#define CLUST_ORPHAN        0xffff     // au:rgavs
+#define CLUST_ORPHAN        0xffff     // au:rgavs 5c18
 #define CLUST_DIR           0x0100
 #define CLUST_HEAD          0x0200
 #define CLUST_NORM          0x0400
@@ -130,10 +130,10 @@ void follow_dir(uint16_t cluster, int indent, uint8_t *image_buf, struct bpb33* 
         int i = 0;
 		for ( ; i < numDirEntries; i++) {
 				uint16_t followclust = print_dirent(dirent, indent);
-				if (followclust){                               // au:rgavs
+				if (followclust){                                       // au:rgavs 5c18
                     clust_map[followclust]->parent = cluster;
                     clust_map[cluster]->next_clust = followclust;
-                    clust_map[followclust]->stat = CLUST_DIR;   // end
+                    clust_map[followclust]->stat = CLUST_DIR;           // end
 					follow_dir(followclust, indent+1, image_buf, bpb);
                 }
 				dirent++;
@@ -145,9 +145,9 @@ void follow_dir(uint16_t cluster, int indent, uint8_t *image_buf, struct bpb33* 
 
 void traverse_root(uint8_t *image_buf, struct bpb33* bpb)
 {
-    uint16_t cluster = 0;
+    uint16_t cluster = 0;                                               // au:rgavs 5c18
     struct direntry *dirent = (struct direntry*)cluster_to_addr(cluster, image_buf, bpb);
-    int i = 0;
+    int i = 0;                                                          // end 5c18
     for ( ; i < bpb->bpbRootDirEnts; i++) {
         uint16_t followclust = print_dirent(dirent, 0);
         if (is_valid_cluster(followclust, bpb)){
@@ -160,11 +160,43 @@ void traverse_root(uint8_t *image_buf, struct bpb33* bpb)
     }
 }
 
-int follow_clust_chain(int clust){
-    return 0;
-}
+int follow_clust_chain(uint16_t cluster, uint32_t bytes_remaining,      // au:rgavs
+    		   uint8_t *image_buf, struct bpb33* bpb)
+{
+    int total_clusters, clust_size;
+    uint8_t *p;
 
-void dir_sz_correct() {                 // au:rgavs
+    clust_size = bpb->bpbSecPerClust * bpb->bpbBytesPerSec;
+    total_clusters = bpb->bpbSectors / bpb->bpbSecPerClust;
+
+    assert(cluster <= total_clusters);
+
+    if (cluster == 0) {
+    	fprintf(stderr, "Bad file termination\n");
+    	return 0;
+    }
+    else if (is_end_of_file(cluster))
+    	return 0;
+
+    /* map the cluster number to the data location */
+    p = cluster_to_addr(cluster, image_buf, bpb);
+
+    if (bytes_remaining <= clust_size){
+    	// fwrite(p, bytes_remaining, 1, fd);     // last cluster
+        clust_map[cluster]->stat = (uint16_t) CLUST_EOFE;
+    }
+    else {
+    	/* more clusters after this one */
+    	// fwrite(p, clust_size, 1, fd);
+        clust_map[cluster]->stat = CLUST_NORM;
+    	/* recurse, continuing to copy */
+    	copy_out_file(get_fat_entry(cluster, image_buf, bpb), bytes_remaining - clust_size, image_buf, bpb);
+    }
+    return 0;
+}                                                                       // end
+
+
+void dir_sz_correct() {                                                 // au:rgavs 5c18
     clust_map[2]->stat = CLUST_FIRST;
     uint16_t size;
     for(int i = 2; i < TOTAL_CLUST; i++){
@@ -181,23 +213,22 @@ void dir_sz_correct() {                 // au:rgavs
             case CLUST_DIR:
                 printf("Cluster number %d is a directory entry.\n", i);
                 break;
-            case CLUST_EOFS & FAT12_MASK:
+            case CLUST_EOFS & FAT12_MASK ... CLUST_EOFE & FAT12_MASK:
                 printf("Cluster number %d is an EOF.\n", i);
                 break;
-            case CLUST_EOFE & FAT12_MASK:
-                printf("Cluster number %d is an EOF.\n", i);
-                break;
-
+            // case CLUST_EOFE & FAT12_MASK:
+            //     printf("Cluster number %d is an EOF.\n", i);
+            //     break;
         }
     }
-}                                   // end
+}                                                                       // end 5c18
 
 int main(int argc, char** argv) {
-    for(int i = 0; i < 2880;i++){
+    for(int i = 0; i < 2880;i++){                                       // au:rgavs 1993
         clust_map[i] = malloc(sizeof(node));
         clust_map[i]->stat = CLUST_ORPHAN;
         clust_map[i]->parent = -1;
-        clust_map[i]->next_clust = -1;
+        clust_map[i]->next_clust = -1;                                  // end 1993
     }
     uint8_t *image_buf;
     int fd;
