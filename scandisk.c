@@ -123,7 +123,7 @@ uint16_t print_dirent(struct direntry *dirent, int indent)
 void follow_dir(uint16_t cluster, int indent, uint8_t *image_buf, struct bpb33* bpb)
 {
     printf("IN FOLLOW_DIR\n");
-    while (is_valid_cluster(cluster, bpb)) {
+    while (is_valid_cluster(cluster, bpb) && !(is_end_of_file(cluster))) {
         struct direntry *dirent = (struct direntry*)cluster_to_addr(cluster, image_buf, bpb);
 
         int numDirEntries = (bpb->bpbBytesPerSec * bpb->bpbSecPerClust) / sizeof(struct direntry);
@@ -142,7 +142,37 @@ void follow_dir(uint16_t cluster, int indent, uint8_t *image_buf, struct bpb33* 
     }
 }
 
+void do_cat(struct direntry *dirent, uint8_t *image_buf, struct bpb33 *bpb)
+{
+    uint16_t cluster = getushort(dirent->deStartCluster);
+    uint32_t bytes_remaining = getulong(dirent->deFileSize);
+    uint16_t cluster_size = bpb->bpbBytesPerSec * bpb->bpbSecPerClust;
 
+    char buffer[MAXFILENAME];
+    get_dirent(dirent, buffer);
+
+    fprintf(stderr, "doing cat for %s, size %d\n", buffer, bytes_remaining);
+    uint32_t totalcluster =0;
+    while (is_valid_cluster(cluster, bpb))
+    {
+        totalcluster += 1;
+    
+        cluster = get_fat_entry(cluster, image_buf, bpb);
+    }
+    //compare filesize in FAT to metadata
+    uint32_t file_size;
+    if ( (t / 512) % 512 == 0)
+        file_size = bytes_remaining / 512;
+    else {
+        file_size = bytes_remaing / 512 + 1;
+    }
+    if (totalcluster  > file_size){
+        dirent->deFileSize = totalcluster * 512;
+    }
+    else if (totalcluster < file_size){
+        dirent->deFileSize = totalcluster * 512;
+    }
+}
 void traverse_root(uint8_t *image_buf, struct bpb33* bpb)
 {
     uint16_t cluster = 0;                                               // au:rgavs 5c18
