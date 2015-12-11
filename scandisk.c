@@ -156,6 +156,14 @@ int dirent_sz_correct(struct direntry *dirent) {                                
     // }
 }                                                                      // end 5c18
 
+uint16_t create_direntry(struct *dirent, char *filename){
+	//Part 2
+	
+	
+	//Part 3
+}
+
+
 uint16_t print_dirent(struct direntry *dirent, int indent)
 {
     uint16_t followclust = 0;
@@ -270,6 +278,13 @@ void traverse_root()
             clust_map[followclust]->parent = cluster;       // au:rgavs commit:fcce
             clust_map[cluster]->next_clust = followclust;   // end      fcce
             follow_dir(followclust, 1);
+        }
+        else {
+        	//if part 2
+        	create_direntry
+        	
+        	//if part 3
+        	create_direntry
         }
         dirent++;
     }
