@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <string.h>
 #include <assert.h>
+#include <ctype.h>
 
 #include "bootsect.h"
 #include "bpb.h"
@@ -59,10 +60,10 @@ int follow_clust_chain(struct direntry *dirent, uint16_t cluster, uint32_t bytes
     //     printf("TESTING");
     /* map the cluster number to the data location */
     // if (is_end_of_file(cluster)){
-    if(bytes_remaining < clust_size){                                   // au:rgavs
+    if((int)bytes_remaining < clust_size){                                   // au:rgavs
         clust_map[cluster]->parent = getushort(dirent->deStartCluster);
         clust_map[cluster]->stat = (uint16_t) (FAT12_MASK & CLUST_EOFS);
-        if(bytes_remaining > clust_size)
+        if((int)bytes_remaining > clust_size)
             return 1;
         else
             return 2;
@@ -125,7 +126,7 @@ void size_check(struct direntry *dirent, uint8_t *imgbuf, struct bpb33* bpb){
     		putulong(dirent->deFileSize, file_size);
     		printf("File size is to small for %s\n", dirent->deName);
     	}
-    
+
 }
 
 
@@ -368,15 +369,16 @@ void read_map(){                    // au:rgavs
     uint16_t start_cluster = -1;
     int j = 1;
     u_int32_t size = 0;
-    for(int i = 0; i < 2880; i++){
+    for(int i = 2; i < 2880; i++){
         // Good clusters
         if(clust_map[i]->stat != CLUST_ORPHAN){
             if(size > 0){
                 char *filename = "foundX.dat"; // fix the string filename, not sure how to place int value correctly into char *
-                char * tmp = strchr(filename,'X');
-                *tmp = (char)j;
+                // char * tmp = strchr(filename,'X');
+                // *tmp = (char)j;
+                filename[5] = (char)j;
                 create_dirent((struct direntry*)cluster_to_addr(0, image_buf, bpb),
-                                "filename",start_cluster, size);
+                                filename, start_cluster, size);
                 size = 0;
                 j++;
             }
@@ -407,7 +409,7 @@ void read_map(){                    // au:rgavs
 
 int main(int argc, char** argv) {
     for(int i = 0; i < 2880;i++){                                       // au:rgavs 1993
-        clust_map[i] = malloc(sizeof(node));
+        clust_map[i] = (node*)malloc(sizeof(node));
         clust_map[i]->stat = CLUST_ORPHAN;
         clust_map[i]->parent = -1;
         clust_map[i]->next_clust = -1;                                  // end 1993
