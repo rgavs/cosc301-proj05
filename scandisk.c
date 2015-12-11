@@ -100,18 +100,21 @@ void size_check(struct direntry *dirent, uint8_t *imgbuf, struct bpb33* bpb){
 	uint32_t file_size = getulong(dirent->deFileSize);
 	uint16_t cluster_size = bpb->bpbBytesPerSec * bpb->bpbSecPerClust;
 	uint32_t totalcluster = 0;
-
+    printf("file_size: %u\n", file_size);
+    printf("cluster_size: %u\n", cluster_size);
 	while (is_valid_cluster(cluster, bpb)){
     	totalcluster += 1;
 
     	cluster = get_fat_entry(cluster, image_buf, bpb);
-
+    }
     	if (file_size%512 == 0) {
-			totalcluster = file_size/512;
+			file_size = file_size/512;
 		}
 		else {
-			totalcluster = (file_size/512) + 1;
+			file_size = (file_size/512) + 1;
 		}
+		printf("file_size: %u\n", file_size);
+        printf("total cluster: %u\n", totalcluster);
     	if (file_size > totalcluster){
     		file_size = totalcluster * bpb->bpbBytesPerSec;
     		putulong(dirent->deFileSize, file_size);
@@ -122,7 +125,7 @@ void size_check(struct direntry *dirent, uint8_t *imgbuf, struct bpb33* bpb){
     		putulong(dirent->deFileSize, file_size);
     		printf("File size is to small for %s\n", dirent->deName);
     	}
-    }
+    
 }
 
 
