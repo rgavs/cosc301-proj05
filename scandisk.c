@@ -86,7 +86,46 @@ int follow_clust_chain(struct direntry *dirent, uint16_t cluster, uint32_t bytes
     }
     printf("TESTING");
     return 0;
-}                                                                       // end d17d
+}       // end d17d
+
+
+//Check if an existing file increases (or decreases) in size by at least one block.
+//Print out a list of files whose length in the directory entry is inconsistent with their length in data blocks (clusters).
+//Free any clusters that are beyond the end of a file, but to which the FAT chain still points.
+//Adjust the size entry for a file if there is a free or bad cluster in the FAT chain. 
+
+void size_check(struct direntry *dirent, uint8_t *imgbuf, struct bpb33* bpb){
+	uint16_t cluster = getushort(dirent->deStartCluster);
+    	uint32_t file_size = getulong(dirent->deFileSize);
+    	uint16_t cluster_size = bpb->bpbBytesPerSec * bpb->bpbSecPerClust;
+    	uint32_t totalcluster =0;
+    	
+	while (is_valid_cluster(cluster, bpb)){
+        	totalcluster += 1;
+
+        	cluster = get_fat_entry(cluster, image_buf, bpb);
+	
+        	if (file_size%512 == 0) {
+			totalcluster = file_size/512;
+		}
+		else {
+			totalcluster = (file_size/512) + 1;
+		}
+        	if (file_size > totalcluster){
+        		file_size = totalclusters * bpb->bpbBytesPerSec;
+			putulong(dirent->deFileSize, file_size);
+        	}
+        	if (file_size < totalcluster){
+        		file_size = totalclusters * bpb->bpbBytesPerSec;
+        		putulong(dirent->deFileSize, file_size);
+        	}
+    	}
+    
+	
+}
+
+
+
 
 int dirent_sz_correct(struct direntry *dirent) {                                                 // au:rgavs 5c18
     clust_map[2]->stat = CLUST_FIRST;
@@ -213,37 +252,7 @@ void follow_dir(uint16_t cluster, int indent)
     }
 }
 
-// void do_cat(struct direntry *dirent, uint8_t *image_buf, struct bpb33 *bpb)
-// {
-//     uint16_t cluster = getushort(dirent->deStartCluster);
-//     uint32_t bytes_remaining = getulong(dirent->deFileSize);
-//     uint16_t cluster_size = bpb->bpbBytesPerSec * bpb->bpbSecPerClust;
-//
-//     char buffer[MAXFILENAME];
-//     get_dirent(dirent, buffer);
-//
-//     fprintf(stderr, "doing cat for %s, size %d\n", buffer, bytes_remaining);
-//     uint32_t totalcluster =0;
-//     while (is_valid_cluster(cluster, bpb))
-//     {
-//         totalcluster += 1;
-//
-//         cluster = get_fat_entry(cluster, image_buf, bpb);
-//     }
-//     //compare filesize in FAT to metadata
-//     uint32_t file_size;
-//     if ( (totalcluster / 512) % 512 == 0)
-//         file_size = bytes_remaining / 512;
-//     else {
-//         file_size = bytes_remaing / 512 + 1;
-//     }
-//     if (totalcluster  > file_size){
-//         dirent->deFileSize = totalcluster * 512;
-//     }
-//     else if (totalcluster < file_size){
-//         dirent->deFileSize = totalcluster * 512;
-//     }
-// }
+
 
 void traverse_root()
 {
