@@ -80,8 +80,9 @@ int follow_clust_chain(struct direntry *dirent, uint16_t cluster, uint32_t bytes
         else if (i == 2){
             clust_map[cluster]->next_clust = get_fat_entry(cluster, image_buf, bpb);
         }
-        else
+        else{
             clust_map[cluster]->next_clust = i;
+        }
         return cluster;
     }
     printf("TESTING");
@@ -92,38 +93,36 @@ int follow_clust_chain(struct direntry *dirent, uint16_t cluster, uint32_t bytes
 //Check if an existing file increases (or decreases) in size by at least one block.
 //Print out a list of files whose length in the directory entry is inconsistent with their length in data blocks (clusters).
 //Free any clusters that are beyond the end of a file, but to which the FAT chain still points.
-//Adjust the size entry for a file if there is a free or bad cluster in the FAT chain. 
+//Adjust the size entry for a file if there is a free or bad cluster in the FAT chain.
 
 void size_check(struct direntry *dirent, uint8_t *imgbuf, struct bpb33* bpb){
 	uint16_t cluster = getushort(dirent->deStartCluster);
-    	uint32_t file_size = getulong(dirent->deFileSize);
-    	uint16_t cluster_size = bpb->bpbBytesPerSec * bpb->bpbSecPerClust;
-    	uint32_t totalcluster =0;
-    	
-	while (is_valid_cluster(cluster, bpb)){
-        	totalcluster += 1;
+	uint32_t file_size = getulong(dirent->deFileSize);
+	uint16_t cluster_size = bpb->bpbBytesPerSec * bpb->bpbSecPerClust;
+	uint32_t totalcluster = 0;
 
-        	cluster = get_fat_entry(cluster, image_buf, bpb);
-	
-        	if (file_size%512 == 0) {
+	while (is_valid_cluster(cluster, bpb)){
+    	totalcluster += 1;
+
+    	cluster = get_fat_entry(cluster, image_buf, bpb);
+
+    	if (file_size%512 == 0) {
 			totalcluster = file_size/512;
 		}
 		else {
 			totalcluster = (file_size/512) + 1;
 		}
-        	if (file_size > totalcluster){
-        		file_size = totalclusters * bpb->bpbBytesPerSec;
-			putulong(dirent->deFileSize, file_size);
-			printf("File size is to big for %s\n", dirent->deName);
-        	}
-        	if (file_size < totalcluster){
-        		file_size = totalclusters * bpb->bpbBytesPerSec;
-        		putulong(dirent->deFileSize, file_size);
-        		printf("File size is to small for %s\n", dirent->deName);
-        	}
+    	if (file_size > totalcluster){
+    		file_size = totalcluster * bpb->bpbBytesPerSec;
+    		putulong(dirent->deFileSize, file_size);
+    		printf("File size is to big for %s\n", dirent->deName);
     	}
-    
-	
+    	if (file_size < totalcluster){
+    		file_size = totalcluster * bpb->bpbBytesPerSec;
+    		putulong(dirent->deFileSize, file_size);
+    		printf("File size is to small for %s\n", dirent->deName);
+    	}
+    }
 }
 
 
@@ -158,8 +157,8 @@ int dirent_sz_correct(struct direntry *dirent) {                                
 
 uint16_t create_direntry(struct *dirent, char *filename){
 	//Part 2
-	
-	
+
+
 	//Part 3
 }
 
@@ -240,8 +239,6 @@ uint16_t print_dirent(struct direntry *dirent, int indent)
 				sys?'s':' ',
 				arch?'a':' ');
     }
-
-
     return followclust;
 }
 
@@ -281,10 +278,10 @@ void traverse_root()
         }
         else {
         	//if part 2
-        	create_direntry
-        	
+        	// create_direntry
+
         	//if part 3
-        	create_direntry
+        	// create_direntry
         }
         dirent++;
     }
@@ -307,15 +304,18 @@ int main(int argc, char** argv) {
     // start user code
     traverse_root();
 
-    unmmap_file(image_buf, &fd);
     for(int i = 0; i < 2880; i++){                  // unimportant edits - just printing...
-        if(clust_map[i]->stat < 0xFFFF){
+        if(get_fat_entry(i, image_buf, bpb) == CLUST_FREE){
+            clust_map[i]->stat = CLUST_FREE;
+        }
+        else if(clust_map[i]->stat < 0xFFFF){
             if(i%3 == 0)
                 printf("\n");
             printf("clust %d->stat = %d     ",i,clust_map[i]->stat);
         }
         free(clust_map[i]);
     }
+    unmmap_file(image_buf, &fd);
     printf("Execution complete.\n");
     return 0;
 }
