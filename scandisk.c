@@ -114,10 +114,12 @@ void size_check(struct direntry *dirent, uint8_t *imgbuf, struct bpb33* bpb){
         	if (file_size > totalcluster){
         		file_size = totalclusters * bpb->bpbBytesPerSec;
 			putulong(dirent->deFileSize, file_size);
+			printf("File size is to big for %s\n", dirent->deName);
         	}
         	if (file_size < totalcluster){
         		file_size = totalclusters * bpb->bpbBytesPerSec;
         		putulong(dirent->deFileSize, file_size);
+        		printf("File size is to small for %s\n", dirent->deName);
         	}
     	}
     
@@ -221,6 +223,8 @@ uint16_t print_dirent(struct direntry *dirent, int indent)
 		size = getulong(dirent->deFileSize);
 		print_indent(indent);
         dirent_sz_correct(dirent);                                          // au:rgavs
+        size_check(dirent, img_buf, bpb);
+
 		printf("%s.%s (%u bytes) (starting cluster %d) %c%c%c%c\n",
 			name, extension, size, getushort(dirent->deStartCluster),
 			ro?'r':' ',
@@ -228,6 +232,7 @@ uint16_t print_dirent(struct direntry *dirent, int indent)
 				sys?'s':' ',
 				arch?'a':' ');
     }
+
 
     return followclust;
 }
