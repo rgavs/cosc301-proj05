@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <string.h>
+#include <assert.h>
 
 #include "bootsect.h"
 #include "bpb.h"
@@ -14,7 +15,8 @@
 #include "fat.h"
 #include "dos.h"
 
-#define CLUST_ORPHAN        0xffff     // au:rgavs 5c18
+
+#define CLUST_ORPHAN        0xfff7     // au:rgavs 5c18     rev.
 #define CLUST_DIR           0x0100
 #define CLUST_HEAD          0x0200
 #define CLUST_NORM          0x0400
@@ -27,13 +29,13 @@ struct _node{
 }; typedef struct _node node;
 
 node *clust_map[2880];                  // end commit
-
+uint8_t *image_buf;
+struct bpb33* bpb;
 
 void usage(char *progname) {
     fprintf(stderr, "usage: %s <imagename>\n", progname);
     exit(1);
 }
-
 
 void print_indent(int indent) {
     int i;
@@ -41,6 +43,77 @@ void print_indent(int indent) {
     	printf(" ");
 }
 
+int follow_clust_chain(struct direntry *dirent, uint16_t cluster, uint32_t bytes_remaining)      // au:rgavs d17d
+{
+    int total_clusters, clust_size;
+
+    clust_size = bpb->bpbSecPerClust * bpb->bpbBytesPerSec;
+    total_clusters = bpb->bpbSectors / bpb->bpbSecPerClust;
+    assert(cluster <= total_clusters);
+
+    if (cluster == 0) {
+    	fprintf(stderr, "Bad file termination\n");
+    	return 0;
+    }
+    // if(bytes_remaining < clust_size)
+    //     printf("TESTING");
+    /* map the cluster number to the data location */
+    // if (is_end_of_file(cluster)){
+    if(bytes_remaining < clust_size){                                   // au:rgavs
+        clust_map[cluster]->parent = getushort(dirent->deStartCluster);
+        clust_map[cluster]->stat = (uint16_t) (FAT12_MASK & CLUST_EOFS);
+        if(bytes_remaining > clust_size)
+            return 1;
+        else
+            return 2;
+    }
+    else {
+    	/* more clusters after this one */
+        clust_map[cluster]->parent = getushort(dirent->deStartCluster);
+        clust_map[cluster]->stat = CLUST_NORM;
+        /* recurse, continuing to copy */
+        int i = 0;
+        if(is_valid_cluster(get_fat_entry(cluster, image_buf, bpb),bpb))
+            i = follow_clust_chain(dirent, get_fat_entry(cluster, image_buf, bpb), bytes_remaining - clust_size);
+        if(i > 2)
+        	clust_map[cluster]->next_clust = i;
+        else if (i == 2){
+            clust_map[cluster]->next_clust = get_fat_entry(cluster, image_buf, bpb);
+        }
+        else
+            clust_map[cluster]->next_clust = i;
+        return cluster;
+    }
+    printf("TESTING");
+    return 0;
+}                                                                       // end d17d
+
+int dirent_sz_correct(struct direntry *dirent) {                                                 // au:rgavs 5c18
+    clust_map[2]->stat = CLUST_FIRST;
+    return follow_clust_chain(dirent, getushort(dirent->deStartCluster), getulong(dirent->deFileSize));
+    // for(int i = 2; i < TOTAL_CLUST; i++){
+        // switch(clust_map[i]->stat){
+        //     case CLUST_ORPHAN: // kind of ugly looking switch, but I don't know any better
+        //         // printf("Cluster number %d is an orphan!\n", i);
+        //         break;
+        //     case CLUST_BAD & FAT16_MASK:
+        //         printf("Cluster number %d is BAD!\n", i);
+        //         break;
+        //     case CLUST_FREE:
+        //         // printf("Cluster number %d is free.\n", i);
+        //             break;
+        //     case CLUST_DIR:
+        //         printf("Cluster number %d is a directory entry.\n", i);
+        //         break;
+        //     case CLUST_EOFS & FAT12_MASK ... CLUST_EOFE & FAT12_MASK:
+        //         printf("Cluster number %d is an EOF.\n", i);
+        //         break;
+        //     case CLUST_EOFE & FAT12_MASK:
+        //         printf("Cluster number %d is an EOF.\n", i);
+        //         break;
+        // }
+    // }
+}                                                                      // end 5c18
 
 uint16_t print_dirent(struct direntry *dirent, int indent)
 {
@@ -108,6 +181,7 @@ uint16_t print_dirent(struct direntry *dirent, int indent)
         clust_map[followclust]->stat = CLUST_NORM;
 		size = getulong(dirent->deFileSize);
 		print_indent(indent);
+        dirent_sz_correct(dirent);                                          // au:rgavs
 		printf("%s.%s (%u bytes) (starting cluster %d) %c%c%c%c\n",
 			name, extension, size, getushort(dirent->deStartCluster),
 			ro?'r':' ',
@@ -119,13 +193,10 @@ uint16_t print_dirent(struct direntry *dirent, int indent)
     return followclust;
 }
 
-
-void follow_dir(uint16_t cluster, int indent, uint8_t *image_buf, struct bpb33* bpb)
+void follow_dir(uint16_t cluster, int indent)
 {
-    printf("IN FOLLOW_DIR\n");
     while (is_valid_cluster(cluster, bpb) && !(is_end_of_file(cluster))) {
         struct direntry *dirent = (struct direntry*)cluster_to_addr(cluster, image_buf, bpb);
-
         int numDirEntries = (bpb->bpbBytesPerSec * bpb->bpbSecPerClust) / sizeof(struct direntry);
         int i = 0;
 		for ( ; i < numDirEntries; i++) {
@@ -134,7 +205,7 @@ void follow_dir(uint16_t cluster, int indent, uint8_t *image_buf, struct bpb33* 
                     clust_map[followclust]->parent = cluster;
                     clust_map[cluster]->next_clust = followclust;
                     clust_map[followclust]->stat = CLUST_DIR;           // end
-					follow_dir(followclust, indent+1, image_buf, bpb);
+					follow_dir(followclust, indent+1);
                 }
 				dirent++;
 		}
@@ -142,38 +213,39 @@ void follow_dir(uint16_t cluster, int indent, uint8_t *image_buf, struct bpb33* 
     }
 }
 
-void do_cat(struct direntry *dirent, uint8_t *image_buf, struct bpb33 *bpb)
-{
-    uint16_t cluster = getushort(dirent->deStartCluster);
-    uint32_t bytes_remaining = getulong(dirent->deFileSize);
-    uint16_t cluster_size = bpb->bpbBytesPerSec * bpb->bpbSecPerClust;
+// void do_cat(struct direntry *dirent, uint8_t *image_buf, struct bpb33 *bpb)
+// {
+//     uint16_t cluster = getushort(dirent->deStartCluster);
+//     uint32_t bytes_remaining = getulong(dirent->deFileSize);
+//     uint16_t cluster_size = bpb->bpbBytesPerSec * bpb->bpbSecPerClust;
+//
+//     char buffer[MAXFILENAME];
+//     get_dirent(dirent, buffer);
+//
+//     fprintf(stderr, "doing cat for %s, size %d\n", buffer, bytes_remaining);
+//     uint32_t totalcluster =0;
+//     while (is_valid_cluster(cluster, bpb))
+//     {
+//         totalcluster += 1;
+//
+//         cluster = get_fat_entry(cluster, image_buf, bpb);
+//     }
+//     //compare filesize in FAT to metadata
+//     uint32_t file_size;
+//     if ( (totalcluster / 512) % 512 == 0)
+//         file_size = bytes_remaining / 512;
+//     else {
+//         file_size = bytes_remaing / 512 + 1;
+//     }
+//     if (totalcluster  > file_size){
+//         dirent->deFileSize = totalcluster * 512;
+//     }
+//     else if (totalcluster < file_size){
+//         dirent->deFileSize = totalcluster * 512;
+//     }
+// }
 
-    char buffer[MAXFILENAME];
-    get_dirent(dirent, buffer);
-
-    fprintf(stderr, "doing cat for %s, size %d\n", buffer, bytes_remaining);
-    uint32_t totalcluster =0;
-    while (is_valid_cluster(cluster, bpb))
-    {
-        totalcluster += 1;
-    
-        cluster = get_fat_entry(cluster, image_buf, bpb);
-    }
-    //compare filesize in FAT to metadata
-    uint32_t file_size;
-    if ( (t / 512) % 512 == 0)
-        file_size = bytes_remaining / 512;
-    else {
-        file_size = bytes_remaing / 512 + 1;
-    }
-    if (totalcluster  > file_size){
-        dirent->deFileSize = totalcluster * 512;
-    }
-    else if (totalcluster < file_size){
-        dirent->deFileSize = totalcluster * 512;
-    }
-}
-void traverse_root(uint8_t *image_buf, struct bpb33* bpb)
+void traverse_root()
 {
     uint16_t cluster = 0;                                               // au:rgavs 5c18
     struct direntry *dirent = (struct direntry*)cluster_to_addr(cluster, image_buf, bpb);
@@ -181,77 +253,13 @@ void traverse_root(uint8_t *image_buf, struct bpb33* bpb)
     for ( ; i < bpb->bpbRootDirEnts; i++) {
         uint16_t followclust = print_dirent(dirent, 0);
         if (is_valid_cluster(followclust, bpb)){
-            printf("followclust = %u and cluster = %u and dirent = %s\n",followclust,cluster,(uint8_t*)dirent);
-            clust_map[followclust]->parent = cluster;       // au:rgavs commit:fcce     PROMBLEM HERE!!
+            clust_map[followclust]->parent = cluster;       // au:rgavs commit:fcce
             clust_map[cluster]->next_clust = followclust;   // end      fcce
-            follow_dir(followclust, 1, image_buf, bpb);
+            follow_dir(followclust, 1);
         }
         dirent++;
     }
 }
-
-int follow_clust_chain(uint16_t cluster, uint32_t bytes_remaining,      // au:rgavs
-    		   uint8_t *image_buf, struct bpb33* bpb)
-{
-    int total_clusters, clust_size;
-    uint8_t *p;
-
-    clust_size = bpb->bpbSecPerClust * bpb->bpbBytesPerSec;
-    total_clusters = bpb->bpbSectors / bpb->bpbSecPerClust;
-
-    assert(cluster <= total_clusters);
-
-    if (cluster == 0) {
-    	fprintf(stderr, "Bad file termination\n");
-    	return 0;
-    }
-    else if (is_end_of_file(cluster))
-    	return 0;
-
-    /* map the cluster number to the data location */
-    p = cluster_to_addr(cluster, image_buf, bpb);
-
-    if (bytes_remaining <= clust_size){
-    	// fwrite(p, bytes_remaining, 1, fd);     // last cluster
-        clust_map[cluster]->stat = (uint16_t) CLUST_EOFE;
-    }
-    else {
-    	/* more clusters after this one */
-    	// fwrite(p, clust_size, 1, fd);
-        clust_map[cluster]->stat = CLUST_NORM;
-    	/* recurse, continuing to copy */
-    	copy_out_file(get_fat_entry(cluster, image_buf, bpb), bytes_remaining - clust_size, image_buf, bpb);
-    }
-    return 0;
-}                                                                       // end
-
-
-void dir_sz_correct() {                                                 // au:rgavs 5c18
-    clust_map[2]->stat = CLUST_FIRST;
-    uint16_t size;
-    for(int i = 2; i < TOTAL_CLUST; i++){
-        switch(clust_map[i]->stat){
-            case CLUST_ORPHAN: // kind of ugly looking switch, but I don't know any better
-                // printf("Cluster number %d is an orphan!\n", i);
-                break;
-            case CLUST_BAD & FAT16_MASK:
-                printf("Cluster number %d is BAD!\n", i);
-                break;
-            case CLUST_FREE:
-                // printf("Cluster number %d is free.\n", i);
-                    break;
-            case CLUST_DIR:
-                printf("Cluster number %d is a directory entry.\n", i);
-                break;
-            case CLUST_EOFS & FAT12_MASK ... CLUST_EOFE & FAT12_MASK:
-                printf("Cluster number %d is an EOF.\n", i);
-                break;
-            // case CLUST_EOFE & FAT12_MASK:
-            //     printf("Cluster number %d is an EOF.\n", i);
-            //     break;
-        }
-    }
-}                                                                       // end 5c18
 
 int main(int argc, char** argv) {
     for(int i = 0; i < 2880;i++){                                       // au:rgavs 1993
@@ -260,9 +268,7 @@ int main(int argc, char** argv) {
         clust_map[i]->parent = -1;
         clust_map[i]->next_clust = -1;                                  // end 1993
     }
-    uint8_t *image_buf;
     int fd;
-    struct bpb33* bpb;
     if (argc < 2)
     	usage(argv[0]);
 
@@ -270,12 +276,17 @@ int main(int argc, char** argv) {
     bpb = check_bootsector(image_buf);
 
     // start user code
-    traverse_root(image_buf, bpb);
-    dir_sz_correct();
+    traverse_root();
 
     unmmap_file(image_buf, &fd);
-    for(int i = 0; i < 2880;i++)
+    for(int i = 0; i < 2880; i++){                  // unimportant edits - just printing...
+        if(clust_map[i]->stat < 0xFFFF){
+            if(i%3 == 0)
+                printf("\n");
+            printf("clust %d->stat = %d     ",i,clust_map[i]->stat);
+        }
         free(clust_map[i]);
+    }
     printf("Execution complete.\n");
     return 0;
 }
