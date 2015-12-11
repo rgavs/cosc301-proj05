@@ -16,7 +16,7 @@
 #include "dos.h"
 
 
-#define CLUST_ORPHAN        0xfff7     // au:rgavs 5c18     rev.
+#define CLUST_ORPHAN        0xfff5     // au:rgavs 5c18     rev.
 #define CLUST_DIR           100
 #define CLUST_HEAD          10
 #define CLUST_NORM          1
@@ -366,16 +366,18 @@ void read_map(){                    // au:rgavs
     int j = 1;
     int size = 0;
     for(int i = 0; i < 2880; i++){                  // unimportant edits - just printing...
+        //Free cluster
         if(get_fat_entry(i, image_buf, bpb) == CLUST_FREE){
             clust_map[i]->stat = CLUST_FREE;
             if(size > 0){
                 create_dirent((struct direntry*)cluster_to_addr(cluster, image_buf, bpb),
-                        ("found%d.dat",j), uint16_t start_cluster, uint32_t size); // fix the string filename
+                printf("found%d.dat",j, uint16_t start_cluster, uint32_t size); // fix the string filename
                 size = 0;
                 j++;
             }
         }
-        else if(clust_map[i]->stat < 0xFFFF){
+        //Good Clusters
+        else if(clust_map[i]->stat <= CLUST_DIR){
             if(i%3 == 0)
                 printf("\n");
             printf("clust %d->stat = %d     ",i,clust_map[i]->stat);
@@ -384,6 +386,7 @@ void read_map(){                    // au:rgavs
                 j++;
             }
         }
+        //Orphans
         else if (clust_map[i]->stat == CLUST_ORPHAN){
             if(size==0)
                 start_cluster = i;
