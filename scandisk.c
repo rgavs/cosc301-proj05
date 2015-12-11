@@ -364,32 +364,35 @@ void traverse_root()
 void read_map(){                    // au:rgavs
     uint16_t start_cluster = -1;
     int j = 1;
-    int size = 0;
-    for(int i = 0; i < 2880; i++){                  // unimportant edits - just printing...
-        //Free cluster
-        if(get_fat_entry(i, image_buf, bpb) == CLUST_FREE){
-            clust_map[i]->stat = CLUST_FREE;
+    u_int32_t size = 0;
+    for(int i = 0; i < 2880; i++){
+        // Good clusters
+        if(clust_map[i]->stat != CLUST_ORPHAN){
             if(size > 0){
-                create_dirent((struct direntry*)cluster_to_addr(cluster, image_buf, bpb),
-                printf("found%d.dat",j, uint16_t start_cluster, uint32_t size); // fix the string filename
+                char *filename = "foundX.dat"; // fix the string filename, not sure how to place int value correctly into char *
+                char * tmp = strchr(filename,'X');
+                *tmp = (char)j;
+                create_dirent((struct direntry*)cluster_to_addr(0, image_buf, bpb),
+                                "filename",start_cluster, size);
                 size = 0;
                 j++;
             }
-        }
-        //Good Clusters
-        else if(clust_map[i]->stat <= CLUST_DIR){
-            if(i%3 == 0)
-                printf("\n");
-            printf("clust %d->stat = %d     ",i,clust_map[i]->stat);
-            if(size > 0){
-                size = 0;
-                j++;
+            // Free clusters
+            if(get_fat_entry(i, image_buf, bpb) == CLUST_FREE){
+                clust_map[i]->stat = CLUST_FREE;
+            }
+            // NORM/Dir clusters
+            else if(clust_map[i]->stat <= CLUST_DIR){
+                if(i%3 == 0)
+                    printf("\n");
+                printf("clust %d->stat = %d     ",i,clust_map[i]->stat);
             }
         }
-        //Orphans
-        else if (clust_map[i]->stat == CLUST_ORPHAN){
-            if(size==0)
+        // Orphans
+        else {
+            if(size == 0){
                 start_cluster = i;
+            }
             clust_map[i]->stat = CLUST_ORPHAN & CLUST_HEAD;
             size += bpb->bpbSecPerClust * bpb->bpbBytesPerSec;
         }
