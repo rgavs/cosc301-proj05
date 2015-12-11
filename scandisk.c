@@ -366,26 +366,24 @@ void read_map(){                    // au:rgavs
     int j = 1;
     int size = 0;
     for(int i = 0; i < 2880; i++){                  // unimportant edits - just printing...
-        if(get_fat_entry(i, image_buf, bpb) == CLUST_FREE){
-            clust_map[i]->stat = CLUST_FREE;
+        if(clust_map[i]->stat != CLUST_ORPHAN){
             if(size > 0){
                 create_dirent((struct direntry*)cluster_to_addr(cluster, image_buf, bpb),
                         ("found%d.dat",j), uint16_t start_cluster, uint32_t size); // fix the string filename
                 size = 0;
                 j++;
             }
-        }
-        else if(clust_map[i]->stat < 0xFFFF){
-            if(i%3 == 0)
-                printf("\n");
-            printf("clust %d->stat = %d     ",i,clust_map[i]->stat);
-            if(size > 0){
-                size = 0;
-                j++;
+            if(get_fat_entry(i, image_buf, bpb) == CLUST_FREE){
+                clust_map[i]->stat = CLUST_FREE;
+            }
+            else if(clust_map[i]->stat < 0xFFFF){
+                if(i%3 == 0)
+                    printf("\n");
+                printf("clust %d->stat = %d     ",i,clust_map[i]->stat);
             }
         }
-        else if (clust_map[i]->stat == CLUST_ORPHAN){
-            if(size==0)
+        else {
+            if(size == 0)       
                 start_cluster = i;
             clust_map[i]->stat = CLUST_ORPHAN & CLUST_HEAD;
             size += bpb->bpbSecPerClust * bpb->bpbBytesPerSec;
