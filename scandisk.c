@@ -132,31 +132,9 @@ void size_check(struct direntry *dirent, uint8_t *imgbuf, struct bpb33* bpb){
 
 
 
-int dirent_sz_correct(struct direntry *dirent) {                                                 // au:rgavs 5c18
+int dirent_sz_correct(struct direntry *dirent) {                        // au:rgavs 5c18
     clust_map[2]->stat = CLUST_FIRST;
     return follow_clust_chain(dirent, getushort(dirent->deStartCluster), getulong(dirent->deFileSize));
-    // for(int i = 2; i < TOTAL_CLUST; i++){
-        // switch(clust_map[i]->stat){
-        //     case CLUST_ORPHAN: // kind of ugly looking switch, but I don't know any better
-        //         // printf("Cluster number %d is an orphan!\n", i);
-        //         break;
-        //     case CLUST_BAD & FAT16_MASK:
-        //         printf("Cluster number %d is BAD!\n", i);
-        //         break;
-        //     case CLUST_FREE:
-        //         // printf("Cluster number %d is free.\n", i);
-        //             break;
-        //     case CLUST_DIR:
-        //         printf("Cluster number %d is a directory entry.\n", i);
-        //         break;
-        //     case CLUST_EOFS & FAT12_MASK ... CLUST_EOFE & FAT12_MASK:
-        //         printf("Cluster number %d is an EOF.\n", i);
-        //         break;
-        //     case CLUST_EOFE & FAT12_MASK:
-        //         printf("Cluster number %d is an EOF.\n", i);
-        //         break;
-        // }
-    // }
 }                                                                      // end 5c18
 
 /* write the values into a directory entry */
@@ -373,10 +351,12 @@ void read_map(){                    // au:rgavs
         // Good clusters
         if(clust_map[i]->stat != CLUST_ORPHAN){
             if(size > 0){
-                char *filename = "foundX.dat"; // fix the string filename, not sure how to place int value correctly into char *
+                // char *filename = "foundX.dat"; // fix the string filename, not sure how to place int value correctly into char *
                 // char * tmp = strchr(filename,'X');
                 // *tmp = (char)j;
-                filename[5] = (char)j;
+                char filename[12];
+                snprintf(filename, 12, "found%d", 42);
+                // filename[5] = (char)j;
                 create_dirent((struct direntry*)cluster_to_addr(0, image_buf, bpb),
                                 filename, start_cluster, size);
                 size = 0;
