@@ -17,9 +17,9 @@
 
 
 #define CLUST_ORPHAN        0xfff7     // au:rgavs 5c18     rev.
-#define CLUST_DIR           0x0100
-#define CLUST_HEAD          0x0200
-#define CLUST_NORM          0x0400
+#define CLUST_DIR           100
+#define CLUST_HEAD          10
+#define CLUST_NORM          1
 #define TOTAL_CLUST         2880
 
 struct _node{
@@ -211,8 +211,7 @@ void write_dirent(struct direntry *dirent, char *filename,
    directory entry */
 
 void create_dirent(struct direntry *dirent, char *filename,
-		   uint16_t start_cluster, uint32_t size,
-		   uint8_t *image_buf, struct bpb33* bpb)
+		   uint16_t start_cluster, uint32_t size)
 {
     while (1) {
     	if (dirent->deName[0] == SLOT_EMPTY) {
@@ -362,6 +361,41 @@ void traverse_root()
     }
 }
 
+void read_map(){                    // au:rgavs
+    uint16_t start_cluster = -1;
+    int j = 1;
+    int size = 0;
+    for(int i = 0; i < 2880; i++){                  // unimportant edits - just printing...
+        if(get_fat_entry(i, image_buf, bpb) == CLUST_FREE){
+            clust_map[i]->stat = CLUST_FREE;
+            if(size > 0){
+                create_dirent((struct direntry*)cluster_to_addr(cluster, image_buf, bpb),
+                        ("found%d.dat",j), uint16_t start_cluster, uint32_t size); // fix the string filename
+                size = 0;
+                j++;
+            }
+        }
+        else if(clust_map[i]->stat < 0xFFFF){
+            if(i%3 == 0)
+                printf("\n");
+            printf("clust %d->stat = %d     ",i,clust_map[i]->stat);
+            if(size > 0){
+                size = 0;
+                j++;
+            }
+        }
+        else if (clust_map[i]->stat == CLUST_ORPHAN){
+            if(size==0)
+                start_cluster = i;
+            clust_map[i]->stat = CLUST_ORPHAN & CLUST_HEAD;
+            size += bpb->bpbSecPerClust * bpb->bpbBytesPerSec;
+        }
+    }
+    for(int i = 0; i< 2880;i++){
+        free(clust_map[i]);
+    }
+}
+
 int main(int argc, char** argv) {
     for(int i = 0; i < 2880;i++){                                       // au:rgavs 1993
         clust_map[i] = malloc(sizeof(node));
@@ -378,18 +412,7 @@ int main(int argc, char** argv) {
 
     // start user code
     traverse_root();
-
-    for(int i = 0; i < 2880; i++){                  // unimportant edits - just printing...
-        if(get_fat_entry(i, image_buf, bpb) == CLUST_FREE){
-            clust_map[i]->stat = CLUST_FREE;
-        }
-        else if(clust_map[i]->stat < 0xFFFF){
-            if(i%3 == 0)
-                printf("\n");
-            printf("clust %d->stat = %d     ",i,clust_map[i]->stat);
-        }
-        free(clust_map[i]);
-    }
+    read_map();
     unmmap_file(image_buf, &fd);
     printf("Execution complete.\n");
     return 0;
