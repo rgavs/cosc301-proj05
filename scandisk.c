@@ -56,10 +56,6 @@ int follow_clust_chain(struct direntry *dirent, uint16_t cluster, uint32_t bytes
     	fprintf(stderr, "Bad file termination\n");
     	return 0;
     }
-    // if(bytes_remaining < clust_size)
-    //     printf("TESTING");
-    /* map the cluster number to the data location */
-    // if (is_end_of_file(cluster)){
     if((int)bytes_remaining < clust_size){                                   // au:rgavs
         clust_map[cluster]->parent = getushort(dirent->deStartCluster);
         clust_map[cluster]->stat = (uint16_t) (FAT12_MASK & CLUST_EOFS);
@@ -78,12 +74,10 @@ int follow_clust_chain(struct direntry *dirent, uint16_t cluster, uint32_t bytes
             i = follow_clust_chain(dirent, get_fat_entry(cluster, image_buf, bpb), bytes_remaining - clust_size);
         if(i > 2)
         	clust_map[cluster]->next_clust = i;
-        else if (i == 2){
+        else if (i == 2)
             clust_map[cluster]->next_clust = get_fat_entry(cluster, image_buf, bpb);
-        }
-        else{
+        else
             clust_map[cluster]->next_clust = i;
-        }
         return cluster;
     }
     printf("TESTING");
@@ -91,11 +85,10 @@ int follow_clust_chain(struct direntry *dirent, uint16_t cluster, uint32_t bytes
 }       // end d17d
 
 
-//Check if an existing file increases (or decreases) in size by at least one block.
-//Print out a list of files whose length in the directory entry is inconsistent with their length in data blocks (clusters).
-//Free any clusters that are beyond the end of a file, but to which the FAT chain still points.
-//Adjust the size entry for a file if there is a free or bad cluster in the FAT chain.
-
+/* Check if an existing file increases (or decreases) in size by at least one block.
+Print out a list of files whose length in the directory entry is inconsistent with their length in data blocks (clusters).
+Free any clusters that are beyond the end of a file, but to which the FAT chain still points.
+Adjust the size entry for a file if there is a free or bad cluster in the FAT chain. */
 void size_check(struct direntry *dirent, uint8_t *imgbuf, struct bpb33* bpb){
 	uint16_t cluster = getushort(dirent->deStartCluster);
 	uint32_t file_size = getulong(dirent->deFileSize);
@@ -151,13 +144,13 @@ void write_dirent(struct direntry *dirent, char *filename,
     /* extract just the filename part */
     uppername = strdup(filename);
     p2 = uppername;
-    for (i = 0; i < strlen(filename); i++) {
+    for (i = 0; i < (int)strlen(filename); i++) {
     	if (p2[i] == '/' || p2[i] == '\\')
     	    uppername = p2 + i + 1;
     }
 
     /* convert filename to upper case */
-    for (i = 0; i < strlen(uppername); i++)
+    for (i = 0; i < (int)strlen(uppername); i++)
     	uppername[i] = toupper(uppername[i]);
 
     /* set the file name and extension */
@@ -191,7 +184,6 @@ void write_dirent(struct direntry *dirent, char *filename,
 
 /* create_dirent finds a free slot in the directory, and write the
    directory entry */
-
 void create_dirent(struct direntry *dirent, char *filename,
 		   uint16_t start_cluster, uint32_t size)
 {
@@ -274,10 +266,8 @@ uint16_t print_dirent(struct direntry *dirent, int indent)
 		}
     }
     else {
-        /*
-         * a "regular" file entry
-         * print attributes, size, starting cluster, etc.
-         */
+        /* a "regular" file entry
+         * print attributes, size, starting cluster, etc. */
 		int ro = (dirent->deAttributes & ATTR_READONLY) == ATTR_READONLY;
 		int hidden = (dirent->deAttributes & ATTR_HIDDEN) == ATTR_HIDDEN;
 		int sys = (dirent->deAttributes & ATTR_SYSTEM) == ATTR_SYSTEM;
@@ -332,13 +322,6 @@ void traverse_root()
             clust_map[cluster]->next_clust = followclust;   // end      fcce
             follow_dir(followclust, 1);
         }
-        else {
-        	//if part 2
-        	// create_direntry
-
-        	//if part 3
-        	// create_direntry
-        }
         dirent++;
     }
 }
@@ -350,22 +333,16 @@ void read_map(){                    // au:rgavs
     for(int i = 2; i < 2880; i++){
         // Good clusters
         if(clust_map[i]->stat != CLUST_ORPHAN){
-            if(size > 0){
-                // char *filename = "foundX.dat"; // fix the string filename, not sure how to place int value correctly into char *
-                // char * tmp = strchr(filename,'X');
-                // *tmp = (char)j;
+            if(size > 0){;
                 char filename[12];
                 snprintf(filename, 12, "found%d", 42);
-                // filename[5] = (char)j;
-                create_dirent((struct direntry*)cluster_to_addr(0, image_buf, bpb),
-                                filename, start_cluster, size);
+                create_dirent((struct direntry*)cluster_to_addr(0, image_buf, bpb), filename, start_cluster, size);
                 size = 0;
                 j++;
             }
             // Free clusters
-            if(get_fat_entry(i, image_buf, bpb) == CLUST_FREE){
+            if(get_fat_entry(i, image_buf, bpb) == CLUST_FREE)
                 clust_map[i]->stat = CLUST_FREE;
-            }
             // NORM/Dir clusters
             else if(clust_map[i]->stat <= CLUST_DIR){
                 if(i%3 == 0)
